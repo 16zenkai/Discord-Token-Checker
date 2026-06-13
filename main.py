@@ -15,30 +15,29 @@ from colorama import Fore, Style, init
 
 init(autoreset=True)
 
+# Extended custom colors using 256-color palette
 Fore.GRAY = "\033[38;5;244m"
-Fore.DARK_BLUE = "\033[38;5;19m"
-Fore.VIOLET = "\033[38;5;129m"
-Fore.PINK = "\033[38;5;205m"
-Fore.ORANGE = "\033[38;5;208m"
-Fore.LIGHT_BLUE = "\033[38;5;39m"
+Fore.PURPLE = "\033[38;5;99m"      # Main thematic accent
+Fore.NEON_PINK = "\033[38;5;201m"  # High priority highlights
+Fore.CYAN_BLUE = "\033[38;5;38m"   # For info tags
+Fore.MINT_GREEN = "\033[38;5;48m"  # For success tags
+Fore.CORAL_RED = "\033[38;5;204m"  # For failures
+Fore.GOLD = "\033[38;5;214m"       # For warnings
 
 class Logger:
     def __init__(self):
-        self.BLUE = "\033[38;5;27m"
-        self.GRAY = "\033[38;5;244m"
-        self.DARK_BLUE = "\033[38;5;19m"
-        self.GREEN = "\033[38;5;46m"
-        self.YELLOW = "\033[38;5;226m"
-        self.CYAN = "\033[38;5;51m"
-        self.WHITE = "\033[38;5;231m"
-        self.RED = "\033[38;5;196m"
-        self.PINK = "\033[38;5;205m"
-        self.ORANGE = "\033[38;5;208m"
-        self.LIGHT_BLUE = "\033[38;5;39m"
-        self.VIOLET = "\033[38;5;129m"
+        # Setting a unified, sleek palette
+        self.ACCENT = "\033[38;5;99m"     # Deep Purple
+        self.GRAY = "\033[38;5;244m"       # Dim Text
+        self.SUCCESS = "\033[38;5;48m"    # Mint Green
+        self.WARNING = "\033[38;5;214m"    # Gold
+        self.INFO = "\033[38;5;38m"        # Cyan Blue
+        self.FAIL = "\033[38;5;204m"        # Coral Red
+        self.HIGHLIGHT = "\033[38;5;201m"   # Neon Pink
+        self.WHITE = "\033[38;5;255m"      # Bright White
         self.RESET = "\033[0m"
-        self.prefix = f"{self.BLUE}{self.DARK_BLUE}{self.RESET}"
-        self.last_print_time = 0
+        
+        self.prefix = f"{self.ACCENT}» {self.RESET}"
         self.print_lock = threading.Lock()
 
     def get_time(self):
@@ -46,50 +45,42 @@ class Logger:
 
     def _log(self, color, icon, tag, message, **kwargs):
         with self.print_lock:
-            time.sleep(0.01)  # Small delay to ensure proper line separation
+            time.sleep(0.01)  
             time_str = f"{self.GRAY}[{self.get_time()}]{self.RESET}"
-            tag_str = f"{self.GRAY}[{color}{icon} {tag}{self.GRAY}]{self.RESET}"
+            tag_str = f"{self.GRAY}[{color}{tag}{self.GRAY}]{self.RESET}"
             
             colored_kwargs = []
             for k, v in kwargs.items():
-                if k == 'token':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.CYAN}{v}")
-                elif k == 'type':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.GREEN}{v}")
-                elif k == 'age':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.CYAN}{v}")
-                elif k == 'boost':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.PINK}{v}")
-                elif k == 'nitro':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.PINK}{v}")
-                elif k == 'redeemable':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.LIGHT_BLUE}{v}")
-                elif k == 'cooldown':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.VIOLET}{v}")
-                elif k == 'error':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.RED}{v}")
-                elif k == 'retry_after':
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.YELLOW}{v}")
+                if k in ['token', 'age', 'redeemable']:
+                    colored_kwargs.append(f"{self.GRAY}{k}: {self.INFO}{v}")
+                elif k in ['type']:
+                    colored_kwargs.append(f"{self.GRAY}{k}: {self.SUCCESS}{v}")
+                elif k in ['boost', 'nitro']:
+                    colored_kwargs.append(f"{self.GRAY}{k}: {self.HIGHLIGHT}{v}")
+                elif k in ['cooldown', 'retry_after']:
+                    colored_kwargs.append(f"{self.GRAY}{k}: {self.WARNING}{v}")
+                elif k in ['error']:
+                    colored_kwargs.append(f"{self.GRAY}{k}: {self.FAIL}{v}")
                 else:
-                    colored_kwargs.append(f"{self.WHITE}{k}: {self.CYAN}{v}")
+                    colored_kwargs.append(f"{self.GRAY}{k}: {self.INFO}{v}")
             
             extra_str = ' | '.join(colored_kwargs) if colored_kwargs else ''
             if extra_str:
-                print(f"{self.prefix}{time_str} {tag_str} {color}→ {self.WHITE}{message}{self.RESET} | {extra_str}", flush=True)
+                print(f"{self.prefix}{time_str} {tag_str} {self.WHITE}{message}{self.RESET} | {extra_str}", flush=True)
             else:
-                print(f"{self.prefix}{time_str} {tag_str} {color}→ {self.WHITE}{message}{self.RESET}", flush=True)
+                print(f"{self.prefix}{time_str} {tag_str} {self.WHITE}{message}{self.RESET}", flush=True)
 
     def info(self, msg, **kwargs):
-        self._log(self.CYAN, "ℹ", "INFO", msg, **kwargs)
+        self._log(self.INFO, "ℹ", "INFO", msg, **kwargs)
 
     def success(self, msg, **kwargs):
-        self._log(self.GREEN, "✓", "SUCCESS", msg, **kwargs)
+        self._log(self.SUCCESS, "✓", "OKAY", msg, **kwargs)
 
     def fail(self, msg, **kwargs):
-        self._log(self.RED, "✗", "FAIL", msg, **kwargs)
+        self._log(self.FAIL, "✗", "FAIL", msg, **kwargs)
 
     def warning(self, msg, **kwargs):
-        self._log(self.YELLOW, "⚠", "WARNING", msg, **kwargs)
+        self._log(self.WARNING, "⚠", "WARN", msg, **kwargs)
 
 log = Logger()
 
@@ -98,14 +89,14 @@ BANNER = r'''
 
 def print_banner():
     os.system('cls' if os.name == 'nt' else 'clear')
-    colors = [Fore.BLUE, Fore.LIGHTBLUE_EX, Fore.BLUE]
+    colors = [Fore.PURPLE, Fore.NEON_PINK, Fore.PURPLE]
     lines = BANNER.split('\n')
     for i, line in enumerate(lines):
-        if line.strip():  # Only print non-empty lines
+        if line.strip():  
             color = colors[i % len(colors)]
             print(pystyle.Center.XCenter(f"{color}{line}{Style.RESET_ALL}"))
     
-    print(pystyle.Center.XCenter(f"{Fore.WHITE}Developer: {Fore.WHITE}zenkai. @netbanking {Fore.PINK}</> {Fore.WHITE} {Fore.WHITE}{Style.RESET_ALL}"))
+    print(pystyle.Center.XCenter(f"{Fore.GRAY}Dev: {Fore.WHITE}zenkai. @netbanking {Fore.NEON_PINK}⧉ {Style.RESET_ALL}"))
     print()
 
 with open('tokens.txt', 'r', encoding='utf-8') as f:
@@ -182,229 +173,230 @@ class Checker:
         global flagged, no_nitro, nitro, non_redeemable
         global locked, redeemable, invalid, valid, current, rate_limit_cooldown
 
-        TOKEN_LOCK.acquire()
-        if not tokens:
+        while True:
+            TOKEN_LOCK.acquire()
+            if not tokens:
+                TOKEN_LOCK.release()
+                break
+            token = tokens.pop().strip()
             TOKEN_LOCK.release()
-            return
-        token = tokens.pop().strip()
-        TOKEN_LOCK.release()
 
-        token_only = token.split(':')[-1]
-        half_token = token_only[:20]
-        masked_token = half_token + '.***.*****'
-        args = {'token': masked_token}
+            token_only = token.split(':')[-1]
+            half_token = token_only[:20]
+            masked_token = half_token + '.***.*****'
+            args = {'token': masked_token}
 
-        for attempt in range(MAX_RETRIES_PER_TOKEN):
-            try:
-                with rate_limit_lock:
-                    if rate_limit_cooldown > time.time():
-                        wait = rate_limit_cooldown - time.time()
-                        time.sleep(wait)
-
-                self.session.headers['authorization'] = token_only
-
-                r = self.session.get('https://discord.com/api/v9/users/@me/guilds', timeout=REQUEST_TIMEOUT)
-
-                if r.status_code == 429:
-                    retry_after = r.json().get('retry_after', 5)
-                    log.warning('Rate limited', retry_after=f'{retry_after}s', token=masked_token)
-                    with rate_limit_lock:
-                        rate_limit_cooldown = time.time() + retry_after
-                    time.sleep(retry_after)
-                    TOKEN_LOCK.acquire()
-                    tokens.append(token)
-                    TOKEN_LOCK.release()
-                    break
-
-                current += 1
-
-                if r.status_code == 401:
-                    invalid += 1
-                    log.fail('Invalid', token=masked_token)
-                    LOCK.acquire()
-                    with open(f'{output_folder}/invalid.txt', 'a', encoding='utf-8') as f:
-                        f.write(token + '\n')
-                    LOCK.release()
-                    break
-
-                if r.status_code == 403:
-                    locked += 1
-                    log.fail('Locked', token=masked_token)
-                    LOCK.acquire()
-                    with open(f'{output_folder}/locked.txt', 'a', encoding='utf-8') as f:
-                        f.write(token + '\n')
-                    LOCK.release()
-                    break
-
-                if r.status_code != 200:
-                    raise Exception(f'Unexpected status {r.status_code}')
-
-                r = self.session.get('https://discord.com/api/v9/users/@me', timeout=REQUEST_TIMEOUT)
-                if r.status_code != 200:
-                    raise Exception('users @me failed')
-
+            for attempt in range(MAX_RETRIES_PER_TOKEN):
                 try:
-                    user_data = r.json()
-                except Exception:
-                    user_data = {}
+                    with rate_limit_lock:
+                        if rate_limit_cooldown > time.time():
+                            wait = rate_limit_cooldown - time.time()
+                            time.sleep(wait)
 
-                if not isinstance(user_data, dict):
-                    user_data = {}
+                    self.session.headers['authorization'] = token_only
 
-                if settings['flagged'] and (user_data.get('flags') or 0) & 1048576 == 1048576:
-                    flagged += 1
-                    log.fail('Flagged', **args)
-                    LOCK.acquire()
-                    with open(f'{output_folder}/flagged.txt', 'a', encoding='utf-8') as f:
-                        f.write(token + '\n')
-                    LOCK.release()
-                    break
+                    r = self.session.get('https://discord.com/api/v9/users/@me/guilds', timeout=REQUEST_TIMEOUT)
 
-                if settings['type']:
-                    type_name = 'Unclaimed'
-                    if user_data.get('email') and user_data.get('verified'):
-                        type_name = 'Email verified'
-                    if user_data.get('phone'):
-                        type_name = 'Fully verified' if type_name == 'Email verified' else 'Phone verified'
-                else:
-                    type_name = 'Valid'
+                    if r.status_code == 429:
+                        retry_after = r.json().get('retry_after', 5)
+                        log.warning('Rate limited', retry_after=f'{retry_after}s', token=masked_token)
+                        with rate_limit_lock:
+                            rate_limit_cooldown = time.time() + retry_after
+                        time.sleep(retry_after)
+                        TOKEN_LOCK.acquire()
+                        tokens.append(token)
+                        TOKEN_LOCK.release()
+                        break
 
-                args['type'] = type_name
+                    current += 1
 
-                if settings['age']:
-                    try:
-                        uid = int(user_data.get('id') or 0)
-                        created_at = ((uid >> 22) + 1420070400000) / 1000
-                        age_days = int((time.time() - created_at) / 86400)
-                        age_str = f'{age_days} days'
-                        args['age'] = age_str
-                        age_path = f'{output_folder}/Age/{age_days} days'
-                        if not os.path.exists(age_path):
-                            os.makedirs(age_path)
+                    if r.status_code == 401:
+                        invalid += 1
+                        log.fail('Invalid', token=masked_token)
                         LOCK.acquire()
-                        with open(f'{age_path}/{type_name}.txt', 'a', encoding='utf-8') as f:
+                        with open(f'{output_folder}/invalid.txt', 'a', encoding='utf-8') as f:
                             f.write(token + '\n')
                         LOCK.release()
-                    except Exception:
-                        pass
+                        break
 
-                if settings['nitro']:
+                    if r.status_code == 403:
+                        locked += 1
+                        log.fail('Locked', token=masked_token)
+                        LOCK.acquire()
+                        with open(f'{output_folder}/locked.txt', 'a', encoding='utf-8') as f:
+                            f.write(token + '\n')
+                        LOCK.release()
+                        break
+
+                    if r.status_code != 200:
+                        raise Exception(f'Unexpected status {r.status_code}')
+
+                    r = self.session.get('https://discord.com/api/v9/users/@me', timeout=REQUEST_TIMEOUT)
+                    if r.status_code != 200:
+                        raise Exception('users @me failed')
+
                     try:
-                        r2 = self.session.get('https://discord.com/api/v9/users/@me/billing/subscriptions', timeout=REQUEST_TIMEOUT)
-                        data = r2.json() if r2.status_code == 200 else []
+                        user_data = r.json()
+                    except Exception:
+                        user_data = {}
 
-                        if isinstance(data, list) and data:
-                            for sub in data:
-                                if not isinstance(sub, dict):
-                                    continue
-                                end = sub.get('current_period_end')
-                                if not end:
-                                    continue
+                    if not isinstance(user_data, dict):
+                        user_data = {}
 
-                                days_left = (
-                                    time.mktime(time.strptime(end.replace('Z', '+00:00')[:26], '%Y-%m-%dT%H:%M:%S.%f'))
-                                    - time.time()
-                                ) / 86400
+                    if settings['flagged'] and (user_data.get('flags') or 0) & 1048576 == 1048576:
+                        flagged += 1
+                        log.fail('Flagged', **args)
+                        LOCK.acquire()
+                        with open(f'{output_folder}/flagged.txt', 'a', encoding='utf-8') as f:
+                            f.write(token + '\n')
+                        LOCK.release()
+                        break
 
-                                r3 = self.session.get('https://discord.com/api/v9/users/@me/guilds/premium/subscription-slots', timeout=REQUEST_TIMEOUT)
-                                slots = r3.json() if r3.status_code == 200 else []
-                                available = sum(
-                                    1 for s in (slots if isinstance(slots, list) else [])
-                                    if isinstance(s, dict) and s.get('cooldown_ends_at') is None
-                                )
+                    if settings['type']:
+                        type_name = 'Unclaimed'
+                        if user_data.get('email') and user_data.get('verified'):
+                            type_name = 'Email verified'
+                        if user_data.get('phone'):
+                            type_name = 'Fully verified' if type_name == 'Email verified' else 'Phone verified'
+                    else:
+                        type_name = 'Valid'
 
-                                month = '1 Month' if days_left <= 31 else '3 Month'
-                                args['boost'] = available
-                                args['nitro'] = f'{month} [{days_left:.0f}d]'
-                                nitro += 1
+                    args['type'] = type_name
 
-                                cooldown = sub.get('cooldown_ends_at')
-                                if cooldown is None:
-                                    path = f'{output_folder}/Nitro/No Cooldown/{month}/{days_left:.0f} days'
-                                    if not os.path.exists(path):
-                                        os.makedirs(path)
-                                    LOCK.acquire()
-                                    with open(f'{path}/{available} boosts.txt', 'a', encoding='utf-8') as f:
-                                        f.write(token + '\n')
-                                    LOCK.release()
-                                    args['cooldown'] = 'No Cooldown'
-                                else:
-                                    dt_obj = datetime.fromisoformat(str(cooldown).replace('Z', '+00:00'))
-                                    cd = f'{dt_obj.day}d {dt_obj.hour}hrs'
-                                    path = f'{output_folder}/Nitro/Cooldown/{month}/{days_left:.0f} days'
-                                    if not os.path.exists(path):
-                                        os.makedirs(path)
-                                    LOCK.acquire()
-                                    with open(f'{path}/{cd}.txt', 'a', encoding='utf-8') as f:
-                                        f.write(token + '\n')
-                                    LOCK.release()
-                                    args['cooldown'] = cd
-                        else:
+                    if settings['age']:
+                        try:
+                            uid = int(user_data.get('id') or 0)
+                            created_at = ((uid >> 22) + 1420070400000) / 1000
+                            age_days = int((time.time() - created_at) / 86400)
+                            age_str = f'{age_days} days'
+                            args['age'] = age_str
+                            age_path = f'{output_folder}/Age/{age_days} days'
+                            if not os.path.exists(age_path):
+                                os.makedirs(age_path)
+                            LOCK.acquire()
+                            with open(f'{age_path}/{type_name}.txt', 'a', encoding='utf-8') as f:
+                                f.write(token + '\n')
+                            LOCK.release()
+                        except Exception:
+                            pass
+
+                    if settings['nitro']:
+                        try:
+                            r2 = self.session.get('https://discord.com/api/v9/users/@me/billing/subscriptions', timeout=REQUEST_TIMEOUT)
+                            data = r2.json() if r2.status_code == 200 else []
+
+                            if isinstance(data, list) and data:
+                                for sub in data:
+                                    if not isinstance(sub, dict):
+                                        continue
+                                    end = sub.get('current_period_end')
+                                    if not end:
+                                        continue
+
+                                    days_left = (
+                                        time.mktime(time.strptime(end.replace('Z', '+00:00')[:26], '%Y-%m-%dT%H:%M:%S.%f'))
+                                        - time.time()
+                                    ) / 86400
+
+                                    r3 = self.session.get('https://discord.com/api/v9/users/@me/guilds/premium/subscription-slots', timeout=REQUEST_TIMEOUT)
+                                    slots = r3.json() if r3.status_code == 200 else []
+                                    available = sum(
+                                        1 for s in (slots if isinstance(slots, list) else [])
+                                        if isinstance(s, dict) and s.get('cooldown_ends_at') is None
+                                    )
+
+                                    month = '1 Month' if days_left <= 31 else '3 Month'
+                                    args['boost'] = available
+                                    args['nitro'] = f'{month} [{days_left:.0f}d]'
+                                    nitro += 1
+
+                                    cooldown = sub.get('cooldown_ends_at')
+                                    if cooldown is None:
+                                        path = f'{output_folder}/Nitro/No Cooldown/{month}/{days_left:.0f} days'
+                                        if not os.path.exists(path):
+                                            os.makedirs(path)
+                                        LOCK.acquire()
+                                        with open(f'{path}/{available} boosts.txt', 'a', encoding='utf-8') as f:
+                                            f.write(token + '\n')
+                                        LOCK.release()
+                                        args['cooldown'] = 'No Cooldown'
+                                    else:
+                                        dt_obj = datetime.fromisoformat(str(cooldown).replace('Z', '+00:00'))
+                                        cd = f'{dt_obj.day}d {dt_obj.hour}hrs'
+                                        path = f'{output_folder}/Nitro/Cooldown/{month}/{days_left:.0f} days'
+                                        if not os.path.exists(path):
+                                            os.makedirs(path)
+                                        LOCK.acquire()
+                                        with open(f'{path}/{cd}.txt', 'a', encoding='utf-8') as f:
+                                            f.write(token + '\n')
+                                        LOCK.release()
+                                        args['cooldown'] = cd
+                            else:
+                                LOCK.acquire()
+                                args['boost'] = 0
+                                args['nitro'] = 'No Nitro'
+                                with open(f'{output_folder}/No Nitro.txt', 'a', encoding='utf-8') as f:
+                                    f.write(token + '\n')
+                                LOCK.release()
+                                no_nitro += 1
+                        except Exception:
                             LOCK.acquire()
                             args['boost'] = 0
                             args['nitro'] = 'No Nitro'
                             with open(f'{output_folder}/No Nitro.txt', 'a', encoding='utf-8') as f:
                                 f.write(token + '\n')
-                            LOCK.release()
                             no_nitro += 1
-                    except Exception:
-                        LOCK.acquire()
-                        args['boost'] = 0
-                        args['nitro'] = 'No Nitro'
-                        with open(f'{output_folder}/No Nitro.txt', 'a', encoding='utf-8') as f:
-                            f.write(token + '\n')
-                        no_nitro += 1
-                        LOCK.release()
+                            LOCK.release()
 
-                if settings['redeemable']:
-                    try:
-                        r2 = self.session.get('https://discord.com/api/v9/users/@me/billing/subscriptions?include_inactive=true', timeout=REQUEST_TIMEOUT)
-                        if r2.status_code == 200 and isinstance(r2.text, str):
-                            if '[]' in r2.text:
-                                args['redeemable'] = 'Redeemable'
-                                with open(f'{output_folder}/Redeemable.txt', 'a', encoding='utf-8') as f:
-                                    f.write(token + '\n')
-                                redeemable += 1
-                            else:
-                                args['redeemable'] = 'Non Redeemable'
-                                with open(f'{output_folder}/Non Redeemable.txt', 'a', encoding='utf-8') as f:
-                                    f.write(token + '\n')
-                                non_redeemable += 1
-                    except Exception:
-                        pass
+                    if settings['redeemable']:
+                        try:
+                            r2 = self.session.get('https://discord.com/api/v9/users/@me/billing/subscriptions?include_inactive=true', timeout=REQUEST_TIMEOUT)
+                            if r2.status_code == 200 and isinstance(r2.text, str):
+                                if '[]' in r2.text:
+                                    args['redeemable'] = 'Redeemable'
+                                    with open(f'{output_folder}/Redeemable.txt', 'a', encoding='utf-8') as f:
+                                        f.write(token + '\n')
+                                    redeemable += 1
+                                else:
+                                    args['redeemable'] = 'Non Redeemable'
+                                    with open(f'{output_folder}/Non Redeemable.txt', 'a', encoding='utf-8') as f:
+                                        f.write(token + '\n')
+                                    non_redeemable += 1
+                        except Exception:
+                            pass
 
-                valid += 1
-                log.success('Valid', **args)
-                LOCK.acquire()
-                with open(f'{output_folder}/{type_name}.txt', 'a', encoding='utf-8') as f:
-                    f.write(token + '\n')
-                with open(f'{output_folder}/Valid.txt', 'a', encoding='utf-8') as f:
-                    f.write(token + '\n')
-                LOCK.release()
-                break
+                    valid += 1
+                    log.success('Valid', **args)
+                    LOCK.acquire()
+                    with open(f'{output_folder}/{type_name}.txt', 'a', encoding='utf-8') as f:
+                        f.write(token + '\n')
+                    with open(f'{output_folder}/Valid.txt', 'a', encoding='utf-8') as f:
+                        f.write(token + '\n')
+                    LOCK.release()
+                    break
 
-            except Exception as e:
-                if TOKEN_LOCK.locked():
-                    try:
+                except Exception as e:
+                    if TOKEN_LOCK.locked():
+                        try:
+                            TOKEN_LOCK.release()
+                        except Exception:
+                            pass
+
+                    if not self.retry_errors(e) or attempt >= MAX_RETRIES_PER_TOKEN - 1:
+                        TOKEN_LOCK.acquire()
+                        tokens.append(token)
                         TOKEN_LOCK.release()
-                    except Exception:
-                        pass
+                        log.fail('Error', **args, error=str(e)[:50])
 
-                if not self.retry_errors(e) or attempt >= MAX_RETRIES_PER_TOKEN - 1:
-                    TOKEN_LOCK.acquire()
-                    tokens.append(token)
-                    TOKEN_LOCK.release()
-                    log.fail('Error', **args, error=str(e)[:50])
-
-                self.new_session()
-                time.sleep(0.5 + random.uniform(0, 0.5))
+                    self.new_session()
+                    time.sleep(0.5 + random.uniform(0, 0.5))
 
 
 def update_title():
     while not done:
         try:
-            time.sleep(0.5)  # Increased sleep time to reduce CPU usage
-            if total > 0:  # Avoid division by zero
+            time.sleep(0.5)  
+            if total > 0:  
                 elapsed = max(time.time() - start, 0.001)
                 pct = current / total * 100
                 cps = current / elapsed if elapsed else 0
@@ -418,15 +410,15 @@ def update_title():
 
 
 def wait_for_enter():
-    print()  # Add newline before waiting
+    print()  
     while True:
         if msvcrt.kbhit():
             key = msvcrt.getch()
             if key == b'\r':
                 break
-        time.sleep(0.1)  # Small sleep to reduce CPU usage
-    log.info('Exiting in 3 seconds...')
-    time.sleep(3)
+        time.sleep(0.1)  
+    log.info('Exiting...')
+    time.sleep(1)
 
 
 if __name__ == '__main__':
@@ -436,7 +428,7 @@ if __name__ == '__main__':
     
     threads = config['main']['threads']
     log.info(f'Starting with {threads} threads...')
-    print()  # Add newline for better separation
+    print()  
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
         futures = []
@@ -445,25 +437,25 @@ if __name__ == '__main__':
             future = executor.submit(checker.check)
             futures.append(future)
         
-        # Wait for all futures to complete
         for future in concurrent.futures.as_completed(futures):
             pass
     
     done = True
     update.join(timeout=1)
-    print()  # Add newline before final summary
+    print()  
     elapsed = time.time() - start
     minutes = int(elapsed // 60)
     seconds = int(elapsed % 60)
-    log.info(f'Checked {current} tokens in {minutes} minutes and {seconds} seconds')
+    log.info(f'Checked {current} tokens in {minutes}m {seconds}s')
     
-    print(f"\n{Fore.BLUE}{'═' * 70}{Style.RESET_ALL}")
-    print(f"{Fore.BLUE}╭─{Fore.WHITE} FINAL SUMMARY {Fore.BLUE}────────────────────────────────────────────────────────────────╮")
-    print(f"│ {Fore.WHITE}Checked: {Fore.CYAN}{current:<6} {Fore.WHITE}| Valid: {Fore.GREEN}{valid:<6} {Fore.WHITE}| Invalid: {Fore.ORANGE}{invalid:<6} {Fore.WHITE}| Nitro: {Fore.PINK}{nitro:<6} {Fore.WHITE}             |")
-    print(f"│ {Fore.WHITE}Locked: {Fore.RED}{locked:<6} {Fore.WHITE}| Flagged: {Fore.YELLOW}{flagged:<6} {Fore.WHITE}| Redeemable: {Fore.LIGHT_BLUE}{redeemable:<6} {Fore.WHITE}| Non Redeemable: {Fore.VIOLET}{non_redeemable:<6} {Fore.WHITE}|")
-    print(f"{Fore.BLUE}╰────────────────────────────────────────────────────────────────────────────────╯{Style.RESET_ALL}")
-    print(f"{Fore.PINK} bas cutie ab band karo aur sojao <3 {Style.RESET_ALL}")
-    print()  # Add newline before exit prompt
+    # Modernized and streamlined summary box
+    print(f"\n{Fore.PURPLE}{'━' * 84}{Style.RESET_ALL}")
+    print(f"{Fore.PURPLE}┃ {Fore.WHITE}FINAL SUMMARY{Fore.PURPLE} ━" + f"━" * 66 + "┃")
+    print(f"{Fore.PURPLE}┃ {Fore.GRAY}Checked: {Fore.CYAN_BLUE}{current:<6} {Fore.GRAY}Valid: {Fore.MINT_GREEN}{valid:<6} {Fore.GRAY}Invalid: {Fore.CORAL_RED}{invalid:<6} {Fore.GRAY}Nitro: {Fore.NEON_PINK}{nitro:<6}       {Fore.PURPLE}┃")
+    print(f"{Fore.PURPLE}┃ {Fore.GRAY}Locked: {Fore.CORAL_RED}{locked:<6} {Fore.GRAY}Flagged: {Fore.GOLD}{flagged:<6} {Fore.GRAY}Redeem: {Fore.CYAN_BLUE}{redeemable:<6} {Fore.GRAY}Non-Redeem: {Fore.PURPLE}{non_redeemable:<6}   {Fore.PURPLE}┃")
+    print(f"{Fore.PURPLE}{'━' * 84}{Style.RESET_ALL}")
+    print(f"{Fore.NEON_PINK} bas cutie ab band karo aur sojao <3 {Style.RESET_ALL}")
+    print()  
     
     log.info('Press Enter to exit.')
     wait_for_enter()
