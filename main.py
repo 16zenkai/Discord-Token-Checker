@@ -1,14 +1,29 @@
 import colorama
+import sys
 import time
 import ctypes
 import concurrent.futures
 import msvcrt
 import os
+
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 import json
 import random
 import threading
 import pystyle
-import toml
+try:
+    import toml
+    def load_config(path):
+        return toml.load(path)
+except ImportError:
+    import tomllib
+    def load_config(path):
+        with open(path, 'rb') as f:
+            return tomllib.load(f)
 from curl_cffi import requests as request
 from datetime import datetime
 from colorama import Fore, Style, init
@@ -26,77 +41,114 @@ Fore.GOLD = "\033[38;5;214m"       # For warnings
 
 class Logger:
     def __init__(self):
-        # Setting a unified, sleek palette
-        self.ACCENT = "\033[38;5;99m"     # Deep Purple
-        self.GRAY = "\033[38;5;244m"       # Dim Text
-        self.SUCCESS = "\033[38;5;48m"    # Mint Green
-        self.WARNING = "\033[38;5;214m"    # Gold
-        self.INFO = "\033[38;5;38m"        # Cyan Blue
-        self.FAIL = "\033[38;5;204m"        # Coral Red
-        self.HIGHLIGHT = "\033[38;5;201m"   # Neon Pink
-        self.WHITE = "\033[38;5;255m"      # Bright White
+        # Clean minimal palette
+        self.DIM = "\033[38;5;240m"        # Subtle bracket/separator gray
+        self.TIME_GRAY = "\033[38;5;244m"   # Timestamp gray
+        self.KEY_GRAY = "\033[38;5;242m"    # Key labels (token:, status:, lock:)
+        self.WHITE = "\033[38;5;253m"       # Main values
+        self.SUCCESS = "\033[38;5;120m"    # Soft mint green (+)
+        self.FAIL = "\033[38;5;203m"       # Soft coral red (-)
+        self.WARN = "\033[38;5;214m"       # Warm orange (*)
+        self.INFO = "\033[38;5;75m"        # Soft blue (/)
+        self.PURPLE = "\033[38;5;141m"     # Soft purple (?)
+        self.PINK = "\033[38;5;213m"       # Soft neon pink
         self.RESET = "\033[0m"
-        
-        self.prefix = f"{self.ACCENT}» {self.RESET}"
         self.print_lock = threading.Lock()
 
     def get_time(self):
         return datetime.now().strftime("%H:%M:%S")
 
-    def _log(self, color, icon, tag, message, **kwargs):
+    def prefix(self, char, color):
+        return f"{self.DIM}({color}{char}{self.DIM}){self.RESET}"
+
+    def _log_token_status(self, char, char_color, tag, tag_color, status_text=None, **kwargs):
         with self.print_lock:
-            time.sleep(0.01)  
-            time_str = f"{self.GRAY}[{self.get_time()}]{self.RESET}"
-            tag_str = f"{self.GRAY}[{color}{tag}{self.GRAY}]{self.RESET}"
-            
-            colored_kwargs = []
+            time_str = f"{self.DIM}[{self.TIME_GRAY}{self.get_time()}{self.DIM}]{self.RESET}"
+            pfx = self.prefix(char, char_color)
+            tag_str = f"{tag_color}{tag:<6}{self.RESET}"
+            sep = f"{self.DIM}»{self.RESET}"
+
+            parts = []
+            if 'token' in kwargs:
+                parts.append(f"{self.KEY_GRAY}token:{self.RESET} {self.WHITE}{kwargs['token']}")
+            if status_text:
+                status_color = self.SUCCESS if status_text.lower() == 'valid' else (self.FAIL if status_text.lower() in ['locked', 'invalid'] else self.WHITE)
+                parts.append(f"{self.KEY_GRAY}status:{self.RESET} {status_color}{status_text}")
+
             for k, v in kwargs.items():
-                if k in ['token', 'age', 'redeemable']:
-                    colored_kwargs.append(f"{self.GRAY}{k}: {self.INFO}{v}")
-                elif k in ['type']:
-                    colored_kwargs.append(f"{self.GRAY}{k}: {self.SUCCESS}{v}")
-                elif k in ['boost', 'nitro']:
-                    colored_kwargs.append(f"{self.GRAY}{k}: {self.HIGHLIGHT}{v}")
-                elif k in ['cooldown', 'retry_after']:
-                    colored_kwargs.append(f"{self.GRAY}{k}: {self.WARNING}{v}")
-                elif k in ['error']:
-                    colored_kwargs.append(f"{self.GRAY}{k}: {self.FAIL}{v}")
+                if k == 'token':
+                    continue
+                if k == 'lock':
+                    parts.append(f"{self.KEY_GRAY}lock:{self.RESET} {self.WARN}{v}")
+                elif k == 'type':
+                    parts.append(f"{self.KEY_GRAY}type:{self.RESET} {self.SUCCESS}{v}")
+                elif k in ['nitro', 'boost']:
+                    parts.append(f"{self.KEY_GRAY}{k}:{self.RESET} {self.PINK}{v}")
+                elif k == 'age':
+                    parts.append(f"{self.KEY_GRAY}age:{self.RESET} {self.INFO}{v}")
+                elif k == 'redeemable':
+                    parts.append(f"{self.KEY_GRAY}redeemable:{self.RESET} {self.INFO}{v}")
+                elif k in ['retry_after', 'cooldown']:
+                    parts.append(f"{self.KEY_GRAY}{k}:{self.RESET} {self.WARN}{v}")
+                elif k == 'error':
+                    parts.append(f"{self.KEY_GRAY}error:{self.RESET} {self.FAIL}{v}")
                 else:
-                    colored_kwargs.append(f"{self.GRAY}{k}: {self.INFO}{v}")
-            
-            extra_str = ' | '.join(colored_kwargs) if colored_kwargs else ''
-            if extra_str:
-                print(f"{self.prefix}{time_str} {tag_str} {self.WHITE}{message}{self.RESET} | {extra_str}", flush=True)
-            else:
-                print(f"{self.prefix}{time_str} {tag_str} {self.WHITE}{message}{self.RESET}", flush=True)
+                    parts.append(f"{self.KEY_GRAY}{k}:{self.RESET} {self.WHITE}{v}")
 
-    def info(self, msg, **kwargs):
-        self._log(self.INFO, "ℹ", "INFO", msg, **kwargs)
+            details = f" {self.RESET}".join(parts)
+            print(f"{time_str} {pfx} {tag_str} {sep} {details}{self.RESET}", flush=True)
 
-    def success(self, msg, **kwargs):
-        self._log(self.SUCCESS, "✓", "OKAY", msg, **kwargs)
+    def success(self, msg='Valid', **kwargs):
+        self._log_token_status('+', self.SUCCESS, 'VALID', self.SUCCESS, status_text=msg, **kwargs)
 
     def fail(self, msg, **kwargs):
-        self._log(self.FAIL, "✗", "FAIL", msg, **kwargs)
+        tag = msg.upper()
+        if 'LOCK' in tag:
+            tag = 'LOCKED'
+        elif 'INVALID' in tag:
+            tag = 'INVALID'
+        elif 'FLAG' in tag:
+            tag = 'FLAGGED'
+        elif 'ERROR' in tag:
+            tag = 'ERROR'
+        self._log_token_status('-', self.FAIL, tag, self.FAIL, status_text=msg, **kwargs)
 
     def warning(self, msg, **kwargs):
-        self._log(self.WARNING, "⚠", "WARN", msg, **kwargs)
+        tag = 'RATELIMIT' if 'rate' in msg.lower() else 'WARN'
+        self._log_token_status('*', self.WARN, tag, self.WARN, **kwargs)
+
+    def log_line(self, char, char_color, text):
+        with self.print_lock:
+            time_str = f"{self.DIM}[{self.TIME_GRAY}{self.get_time()}{self.DIM}]{self.RESET}"
+            pfx = self.prefix(char, char_color)
+            print(f"{time_str} {pfx} {text}{self.RESET}", flush=True)
+
+    def inf(self, text):
+        self.log_line('/', self.INFO, text)
+
+    def info(self, text, **kwargs):
+        if kwargs:
+            extra = ', '.join(f"{k}= {v}" for k, v in kwargs.items())
+            self.inf(f"{text} -> {extra}")
+        else:
+            self.inf(text)
+
+    def input(self, text):
+        time_str = f"{self.DIM}[{self.TIME_GRAY}{self.get_time()}{self.DIM}]{self.RESET}"
+        pfx = self.prefix('?', self.PURPLE)
+        print(f"\n{time_str} {pfx} {self.INFO}{text}{self.RESET} ", end='', flush=True)
 
 log = Logger()
 
-BANNER = r'''                                                                                                                          
-'''
-
 def print_banner():
     os.system('cls' if os.name == 'nt' else 'clear')
-    colors = [Fore.PURPLE, Fore.NEON_PINK, Fore.PURPLE]
-    lines = BANNER.split('\n')
-    for i, line in enumerate(lines):
-        if line.strip():  
-            color = colors[i % len(colors)]
-            print(pystyle.Center.XCenter(f"{color}{line}{Style.RESET_ALL}"))
-    
-    print(pystyle.Center.XCenter(f"{Fore.GRAY}Dev: {Fore.WHITE}zenkai. @netbanking {Fore.NEON_PINK}⧉ {Style.RESET_ALL}"))
+    print()
+    purple = "\033[38;5;141m"
+    dim = "\033[38;5;240m"
+    gray = "\033[38;5;245m"
+    white = "\033[38;5;255m"
+    reset = "\033[0m"
+    print(f"  {purple}Dev: {white}@16zenkai {dim}• {gray}{reset}")
     print()
 
 with open('tokens.txt', 'r', encoding='utf-8') as f:
@@ -109,6 +161,8 @@ tokens = list(set(tokens))
 valid = 0
 invalid = 0
 locked = 0
+email_locked = 0
+phone_locked = 0
 nitro = 0
 flagged = 0
 total = len(tokens)
@@ -118,7 +172,7 @@ redeemable = 0
 non_redeemable = 0
 done = False
 
-config = toml.load('data/config.toml')
+config = load_config('data/config.toml')
 settings = json.loads(open('data/settings.json', 'r', encoding='utf-8').read())
 
 LOCK = threading.Lock()
@@ -130,11 +184,14 @@ REQUEST_TIMEOUT = 20
 print_banner()
 
 output_folder = f"output/{time.strftime('%Y-%m-%d %H-%M-%S')}"
-log.info('Loading tokens...', output=output_folder, total=total)
-print()
-
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
+
+threads = config['main']['threads']
+log.inf(f"Total tokens loaded -> count= {total}")
+log.inf(f"Output directory -> {output_folder}")
+log.inf(f"Starting with {threads} threads")
+print()
 
 start = time.time()
 rate_limit_cooldown = 0
@@ -171,7 +228,7 @@ class Checker:
 
     def check(self) -> None:
         global flagged, no_nitro, nitro, non_redeemable
-        global locked, redeemable, invalid, valid, current, rate_limit_cooldown
+        global locked, email_locked, phone_locked, redeemable, invalid, valid, current, rate_limit_cooldown
 
         while True:
             TOKEN_LOCK.acquire()
@@ -182,8 +239,7 @@ class Checker:
             TOKEN_LOCK.release()
 
             token_only = token.split(':')[-1]
-            half_token = token_only[:20]
-            masked_token = half_token + '.***.*****'
+            masked_token = (token_only[:12] + '****') if len(token_only) >= 12 else token_only
             args = {'token': masked_token}
 
             for attempt in range(MAX_RETRIES_PER_TOKEN):
@@ -220,18 +276,67 @@ class Checker:
                         break
 
                     if r.status_code == 403:
-                        locked += 1
-                        log.fail('Locked', token=masked_token)
+                        lock_type = 'phone'
+                        try:
+                            r_user = self.session.get('https://discord.com/api/v9/users/@me', timeout=REQUEST_TIMEOUT)
+                            if r_user.status_code == 200:
+                                user_data = r_user.json()
+                                if isinstance(user_data, dict):
+                                    if not user_data.get('verified') or not user_data.get('email'):
+                                        lock_type = 'email'
+                                    else:
+                                        lock_type = 'phone'
+                            elif 'email' in r_user.text.lower():
+                                lock_type = 'email'
+                        except Exception:
+                            pass
+
                         LOCK.acquire()
+                        locked += 1
+                        if lock_type == 'email':
+                            email_locked += 1
+                        else:
+                            phone_locked += 1
+
                         with open(f'{output_folder}/locked.txt', 'a', encoding='utf-8') as f:
                             f.write(token + '\n')
+                        lock_file_name = 'Email Locked.txt' if lock_type == 'email' else 'Phone Locked.txt'
+                        with open(f'{output_folder}/{lock_file_name}', 'a', encoding='utf-8') as f:
+                            f.write(token + '\n')
                         LOCK.release()
+
+                        log.fail('Locked', token=masked_token, lock=lock_type)
                         break
 
                     if r.status_code != 200:
                         raise Exception(f'Unexpected status {r.status_code}')
 
                     r = self.session.get('https://discord.com/api/v9/users/@me', timeout=REQUEST_TIMEOUT)
+                    if r.status_code == 403:
+                        lock_type = 'phone'
+                        try:
+                            if 'email' in r.text.lower():
+                                lock_type = 'email'
+                        except Exception:
+                            pass
+
+                        LOCK.acquire()
+                        locked += 1
+                        if lock_type == 'email':
+                            email_locked += 1
+                        else:
+                            phone_locked += 1
+
+                        with open(f'{output_folder}/locked.txt', 'a', encoding='utf-8') as f:
+                            f.write(token + '\n')
+                        lock_file_name = 'Email Locked.txt' if lock_type == 'email' else 'Phone Locked.txt'
+                        with open(f'{output_folder}/{lock_file_name}', 'a', encoding='utf-8') as f:
+                            f.write(token + '\n')
+                        LOCK.release()
+
+                        log.fail('Locked', token=masked_token, lock=lock_type)
+                        break
+
                     if r.status_code != 200:
                         raise Exception('users @me failed')
 
@@ -401,24 +506,22 @@ def update_title():
                 pct = current / total * 100
                 cps = current / elapsed if elapsed else 0
                 ctypes.windll.kernel32.SetConsoleTitleW(
-                    f'Zenkai - Token Checker | Valid: {valid} | Invalid: {invalid} | '
-                    f'Locked: {locked} | Remaining: {len(tokens)} | '
-                    f'Checked: {pct:.2f}% | CPS: {cps:.2f}'
+                    f'Zenkai | Valid: {valid} | Invalid: {invalid} | '
+                    f'Locked: {locked} (E: {email_locked} / P: {phone_locked}) | '
+                    f'Checked: {pct:.1f}% | CPS: {cps:.1f}'
                 )
         except Exception:
             pass
 
 
 def wait_for_enter():
-    print()  
     while True:
         if msvcrt.kbhit():
             key = msvcrt.getch()
             if key == b'\r':
                 break
-        time.sleep(0.1)  
-    log.info('Exiting...')
-    time.sleep(1)
+        time.sleep(0.05)
+    print()
 
 
 if __name__ == '__main__':
@@ -427,9 +530,6 @@ if __name__ == '__main__':
     update.start()
     
     threads = config['main']['threads']
-    log.info(f'Starting with {threads} threads...')
-    print()  
-    
     with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
         futures = []
         for i in range(threads):
@@ -442,20 +542,36 @@ if __name__ == '__main__':
     
     done = True
     update.join(timeout=1)
-    print()  
+    
     elapsed = time.time() - start
     minutes = int(elapsed // 60)
     seconds = int(elapsed % 60)
-    log.info(f'Checked {current} tokens in {minutes}m {seconds}s')
     
-    # Modernized and streamlined summary box
-    print(f"\n{Fore.PURPLE}{'━' * 84}{Style.RESET_ALL}")
-    print(f"{Fore.PURPLE}┃ {Fore.WHITE}FINAL SUMMARY{Fore.PURPLE} ━" + f"━" * 66 + "┃")
-    print(f"{Fore.PURPLE}┃ {Fore.GRAY}Checked: {Fore.CYAN_BLUE}{current:<6} {Fore.GRAY}Valid: {Fore.MINT_GREEN}{valid:<6} {Fore.GRAY}Invalid: {Fore.CORAL_RED}{invalid:<6} {Fore.GRAY}Nitro: {Fore.NEON_PINK}{nitro:<6}       {Fore.PURPLE}┃")
-    print(f"{Fore.PURPLE}┃ {Fore.GRAY}Locked: {Fore.CORAL_RED}{locked:<6} {Fore.GRAY}Flagged: {Fore.GOLD}{flagged:<6} {Fore.GRAY}Redeem: {Fore.CYAN_BLUE}{redeemable:<6} {Fore.GRAY}Non-Redeem: {Fore.PURPLE}{non_redeemable:<6}   {Fore.PURPLE}┃")
-    print(f"{Fore.PURPLE}{'━' * 84}{Style.RESET_ALL}")
-    print(f"{Fore.NEON_PINK} bas cutie ab band karo aur sojao <3 {Style.RESET_ALL}")
-    print()  
+    dim = "\033[38;5;240m"
+    gray = "\033[38;5;245m"
+    white = "\033[38;5;255m"
+    green = "\033[38;5;120m"
+    red = "\033[38;5;203m"
+    gold = "\033[38;5;221m"
+    pink = "\033[38;5;213m"
+    cyan = "\033[38;5;75m"
+    reset = "\033[0m"
     
-    log.info('Press Enter to exit.')
+    print()
+    log.log_line('/', log.INFO, f"{white}Minutes {dim}-> {gray}count= {reset}{cyan}{minutes}{reset}{gray}, {white}Seconds {dim}-> {gray}count= {reset}{cyan}{seconds}{reset}")
+    log.log_line('/', log.INFO, f"{white}Total {dim}-> {gray}count= {reset}{cyan}{total}{reset}")
+    log.log_line('+', log.SUCCESS, f"{white}Valid {dim}-> {gray}count= {reset}{green}{valid}{reset}")
+    log.log_line('-', log.FAIL, f"{white}Invalid {dim}-> {gray}count= {reset}{red}{invalid}{reset}")
+    log.log_line('*', log.WARN, f"{white}Nitro {dim}-> {gray}count= {reset}{pink}{nitro}{reset}")
+    log.log_line('-', log.FAIL, f"{white}Locked {dim}-> {gray}count= {reset}{red}{locked}{reset}")
+    time_str = f"{dim}[{gray}{log.get_time()}{dim}]{reset}"
+    print(f"{time_str}      {dim}├─ {white}Email Locked {dim}-> {gray}count= {reset}{gold}{email_locked}{reset}")
+    print(f"{time_str}      {dim}└─ {white}Phone Locked {dim}-> {gray}count= {reset}{red}{phone_locked}{reset}")
+    if flagged > 0:
+        log.log_line('*', log.WARN, f"{white}Flagged {dim}-> {gray}count= {reset}{gold}{flagged}{reset}")
+    if settings.get('redeemable'):
+        log.log_line('/', log.INFO, f"{white}Redeemable {dim}-> {gray}count= {reset}{cyan}{redeemable}{reset}")
+        log.log_line('/', log.INFO, f"{white}Non Redeemable {dim}-> {gray}count= {reset}{gray}{non_redeemable}{reset}")
+    
+    log.input("Press Enter to exit")
     wait_for_enter()
